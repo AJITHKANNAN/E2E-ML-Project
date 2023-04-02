@@ -14,7 +14,7 @@ def get_requirements(file_path:str)->List[str]:
     requirements=[]
     with open(file_path) as file_obj:
         requirements= file_obj.readlines()
-        #it'll create \n while reading a line to avaoid it
+        #it'll create \n while reading a line to avoid it
         requirements =[r.replace("\n","") for r in requirements]
 
         if hypen_e_dot in requirements:
@@ -24,10 +24,10 @@ def get_requirements(file_path:str)->List[str]:
 
 setup(
 name = 'mlproject',
-version='0.0.1'
+version='0.0.1',
 author ='Ajith',
 author_email = 'ajithkannan13698@gmail.com',
-packages = find_packages(),
+packages= find_packages(),
 install_requires = get_requirements('requirements.txt')
 
 
