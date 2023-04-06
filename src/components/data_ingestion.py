@@ -1,7 +1,8 @@
    #DATA INGESTION
 
 """
-Data ingestion is the process of reading data from multiple sources and split them into train and test for performing data transformation.
+Data ingestion is the process of reading data from multiple sources and split them into train and test 
+for performing data transformation.
 
 This process is needed because every company will have a seperate BIG  DATA team and they'll  
 collect the data from multiple sources to read them we use Data Ingestion """
@@ -14,6 +15,9 @@ from src.exception import CustomException
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from dataclasses import dataclass
+
+from src.components.data_transformation import DataTransformation, DataTransforationConfig
+
 
 @dataclass #decorator for input data for processing
 class DataIngestionConfig:  
@@ -54,11 +58,15 @@ class DataIngestion:
              self.ingestion_config.test_data_path)
 
        except Exception as e:
-          raise CustomException
+          raise CustomException(e,sys)
           
 
 #this step will create my Artifacts folder
 
 if __name__== "__main__":
    obj =DataIngestion()
-   obj.initiate_data_ingestion()
+   train_data, test_data=obj.initiate_data_ingestion()
+
+
+   data_transformation =DataTransformation()
+   data_transformation.initiate_transformation( train_data, test_data)
