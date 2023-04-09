@@ -1,67 +1,71 @@
 import sys
-import os
 from dataclasses import dataclass
-import numpy as np
+
+import numpy as np 
 import pandas as pd
 from sklearn.compose import ColumnTransformer
-# ColumnTransformer was helpful in building a pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder,StandardScaler
+
 from src.exception import CustomException
-#from src.logger import logging
+from src.logger import logging
+import os
+
 from src.utils import save_object
 
 @dataclass
-class DataTransforationConfig:
-    preprocessor_obj_path = os.path.join('artifacts', "preprocessor.pkl")
+class DataTransformationConfig:
+    preprocessor_obj_file_path=os.path.join('artifacts',"proprocessor.pkl")
 
 class DataTransformation:
-
     def __init__(self):
-        self.transformation_config = DataTransforationConfig()
+        self.data_transformation_config=DataTransformationConfig()
 
-
-#PREPARING THE DATA FOR TEH TRANSFORMATION
-    def get_data_transformer_obj(self):
-        #this function will be responsible for my data transformation
-
+    def get_data_transformer_object(self):
+        '''
+        This function si responsible for data trnasformation
+        
+        '''
         try:
-            num_columns = ['writing_score','reading_score']
-            cat_columns = [
-                "gender","race_ethnicity","parental_level_of_education","lunch","test_preparation_course"
+            numerical_columns = ["writing_score", "reading_score"]
+            categorical_columns = [
+                "gender",
+                "race_ethnicity",
+                "parental_level_of_education",
+                "lunch",
+                "test_preparation_course",
             ]
 
-            # CREATING A PIPELINE FOR TRAINING MODELS
+            num_pipeline= Pipeline(
+                steps=[
+                ("imputer",SimpleImputer(strategy="median")),
+                ("scaler",StandardScaler())
 
-            num_pipeline = Pipeline(
-                steps = [
-
-                ("imputer", SimpleImputer(strategy ='median')),  #this will ipute all missing vlues with median
-                ("scaler", StandardScaler()) #this will scale the values inbetween a specific range
-                ] 
+                ]
             )
 
-            cat_pipeline = Pipeline(
-                steps = [
-                
-                ("imputer", SimpleImputer(strategy= 'most_frequent')),#this will ipute all missing vlues with mode
-                ('oh_encoder', OneHotEncoder()), #this will convert all categroial variables into numeric
-                ('scaler', StandardScaler(with_mean= False)) #this will scale the values inbetween a specific range
+            cat_pipeline=Pipeline(
+
+                steps=[
+                ("imputer",SimpleImputer(strategy="most_frequent")),
+                ("one_hot_encoder",OneHotEncoder()),
+                ("scaler",StandardScaler(with_mean=False))
                 ]
-                )
-            
-            '''logging.info(f"Categroical columns: {cat_columns}")
-            logging.info(f"Numeric columns:{num_columns}")'''
 
-            #We need to combine the variables num_pipeline and Cat_pipeline. so We use ColumnTransformer
+            )
 
-            preprocessor = ColumnTransformer(
+            logging.info(f"Categorical columns: {categorical_columns}")
+            logging.info(f"Numerical columns: {numerical_columns}")
+
+            preprocessor=ColumnTransformer(
                 [
-                ('Num_pipeline',num_pipeline, num_columns),
-                ('Cat_pipeline', cat_pipeline, cat_columns)
+                ("num_pipeline",num_pipeline,numerical_columns),
+                ("cat_pipelines",cat_pipeline,categorical_columns)
 
                 ]
+
+
             )
 
             return preprocessor
@@ -69,55 +73,52 @@ class DataTransformation:
         except Exception as e:
             raise CustomException(e,sys)
         
+    def initiate_data_transformation(self,train_path,test_path):
 
-    #INITIATE MY DATA TRANSFORMATION
+        try:
+            train_df=pd.read_csv(train_path)
+            test_df=pd.read_csv(test_path)
 
-    def initiate_transformation(self, train_path, test_path):
+            logging.info("Read train and test data completed")
 
-        try: #reading data from data_ingestion.pys
-            train_df = pd.read_csv(train_path)
-            test_df =pd.read_csv(test_path)
+            logging.info("Obtaining preprocessing object")
 
-            '''logging.info('Reading terain and test data Completed')
+            preprocessing_obj=self.get_data_transformer_object()
 
-            logging.info('Obtaining preprocessing object')
-'''
-            preprocesssing_obj = self.get_data_transformer_obj()
+            target_column_name="math_score"
+            numerical_columns = ["writing_score", "reading_score"]
 
-            target_column_name = "math_score"
-            num_columns = ['writing_score','reading_score']
+            input_feature_train_df=train_df.drop(columns=[target_column_name],axis=1)
+            target_feature_train_df=train_df[target_column_name]
 
-            #TRAINING DF
-            input_feature_train_df = train_df.drop(columns= [target_column_name], axis =1)
-            target_feature_train_df =train_df[target_column_name]
+            input_feature_test_df=test_df.drop(columns=[target_column_name],axis=1)
+            target_feature_test_df=test_df[target_column_name]
 
-            #TESTING DF
-            input_feature_test_df = test_df.drop(columns= [target_column_name], axis =1)
-            target_feature_test_df =test_df[target_column_name]
+            logging.info(
+                f"Applying preprocessing object on training dataframe and testing dataframe."
+            )
 
-            #logging.info('Apply prerocessing on Train and Test dataframes')
+            input_feature_train_arr=preprocessing_obj.fit_transform(input_feature_train_df)
+            input_feature_test_arr=preprocessing_obj.transform(input_feature_test_df)
 
-            input_train_arr =preprocesssing_obj.fit_transform(input_feature_train_df)
-            input_test_arr =preprocesssing_obj.transform(input_feature_test_df)
+            train_arr = np.c_[
+                input_feature_train_arr, np.array(target_feature_train_df)
+            ]
+            test_arr = np.c_[input_feature_test_arr, np.array(target_feature_test_df)]
 
+            logging.info(f"Saved preprocessing object.")
 
-            train_arr = np.c_[ input_train_arr, np.array(target_feature_train_df)]
+            save_object(
 
-            test_arr = np.c_[ input_test_arr, np.array(target_feature_test_df)]
+                file_path=self.data_transformation_config.preprocessor_obj_file_path,
+                obj=preprocessing_obj
 
-            #logging.info('Saved Preprocessing Object')
+            )
 
-            #CREATING A --PKL-- FILE
-
-            save_object (  
-                file_path = self.transformation_config.preprocessor_obj_path,
-                obj = preprocesssing_obj
-             )
-
-            return (train_arr, 
-                    test_arr,
-                    self.transformation_config.preprocessor_obj_path)
-
+            return (
+                train_arr,
+                test_arr,
+                self.data_transformation_config.preprocessor_obj_file_path,
+            )
         except Exception as e:
             raise CustomException(e,sys)
-    
